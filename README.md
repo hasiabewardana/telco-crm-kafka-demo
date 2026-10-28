@@ -7,7 +7,7 @@ Business events such as **service activation** and **billing** are published onc
 The stack deliberately matches what a typical enterprise ran during **2021 – 2023**
 (Java 11, Spring Boot 2.7, Confluent Platform 7.3 with ZooKeeper).
 
-> Status: **Phase 0 complete, Phase 1 (Kafka CLI lab) in progress.** Services are added phase by phase (see [Roadmap](#roadmap)).
+> Status: **Phases 0 – 1 complete.** Next: Phase 2 – `activation-service` producer. Services are added phase by phase (see [Roadmap](#roadmap)).
 
 ---
 
@@ -95,7 +95,7 @@ telco-crm-kafka-demo/
 | Phase | Topic | Key Kafka concepts | Status |
 |---|---|---|---|
 | 0 | [Environment setup](docs/00-environment-setup.md) | brokers, ZooKeeper, listeners, durability defaults | ✅ |
-| 1 | [Kafka CLI hands-on](docs/01-kafka-cli-basics.md) | topics, partitions, offsets, replication, ISR, consumer groups | 🚧 |
+| 1 | [Kafka CLI hands-on](docs/01-kafka-cli-basics.md) | topics, partitions, offsets, replication, ISR, consumer groups | ✅ |
 | 2 | Producer – `activation-service` | KafkaTemplate, keys & partitioning, `acks=all`, idempotence, retries | ⏳ |
 | 3 | Consumers – billing & notification | `@KafkaListener`, groups, pub-sub vs queue, rebalancing, offset commits | ⏳ |
 | 4 | Fan-out – `loyalty-service` | new consumer group without producer change, replay, lag | ⏳ |

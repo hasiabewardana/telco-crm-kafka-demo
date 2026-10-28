@@ -186,8 +186,44 @@ Wait ~30 s and describe again – the replicas rejoin the ISR. Leaders may stay 
 
 ## Checkpoint questions
 
-1. Why are all events for one MSISDN in the same partition, and why does that matter for billing?
-2. You run 5 billing consumers on a 3-partition topic. What happens to 2 of them?
-3. A new `loyalty-grp` starts tomorrow. Can it read today's events? What decides that?
-4. What is the difference between `acks=all` and `min.insync.replicas`?
-5. Does consuming a message remove it from the topic?
+1. Why are all events for one MSISDN in the same partition, and why does that matter for billing? When the producer produce events, it uses parse.key=true therefore events with same MSISDN save in one partition in ordered manner. Since the sequence of billing events is important for one MSISDN, the saving billing events for a particular MSISDN is preserved within a partition.
+2. You run 5 billing consumers on a 3-partition topic. What happens to 2 of them? The excess consumers are in idle.
+3. A new `loyalty-grp` starts tomorrow. Can it read today's events? What decides that? Yes, it can read from today's events. It is decided by the common consumer_offsets topic. As it doesn't have any offsets recorder for this new group, the group can read message from today with --from-beginning flag.
+4. What is the difference between `acks=all` and `min.insync.replicas`? acks=all means acknowledging all brokers when a message is produced by a producer and it can be done even within a one broker cluster. But if the value of min.insync.replicas should be >= 2 otherwise, cluster pops up an error message with that there is not enough in sync replicas when an event is created.
+5. Does consuming a message remove it from the topic? No, within the retention period.
+
+## Review notes
+
+**1. Same MSISDN → same partition — mostly right.**
+`parse.key=true` only tells the *console tool* to read a key from each line. The real mechanism is the
+producer's **partitioner**: `partition = murmur2(key) % numPartitions` (a Spring app does the same with no
+flag). Caveats: adding partitions later changes the mapping, and retries without an idempotent producer
+can reorder records (Phase 2).
+
+**2. 5 consumers, 3 partitions — correct.**
+The 2 extra consumers are idle, but act as **hot standbys**: if an active consumer dies, a rebalance gives
+its partition to an idle one.
+
+**3. New `loyalty-grp` tomorrow — partly right.**
+With no committed offsets in `__consumer_offsets`, the consumer setting **`auto.offset.reset`** decides.
+Its default is **`latest`** (new messages only), so by default the answer is **no**. `--from-beginning` is
+the CLI equivalent of `auto.offset.reset=earliest`. It can read today's events only if
+`auto.offset.reset=earliest` **and** the records are still within **retention**. Once the group has
+committed offsets, the setting is ignored.
+
+**4. `acks=all` vs `min.insync.replicas` — corrected.**
+
+| Setting | Set on | Meaning |
+|---|---|---|
+| `acks=all` | Producer | Leader acknowledges only after **every replica currently in the ISR** has the record (not "all brokers") |
+| `min.insync.replicas` | Broker / topic | **Minimum ISR size** required for the broker to accept an `acks=all` write |
+
+`NOT_ENOUGH_REPLICAS` is raised when the **ISR shrinks below `min.insync.replicas`** (Part F: with
+`min.insync.replicas=2`, ISR 3 → OK, ISR 2 → OK, ISR 1 → error). `acks=all` alone can mean "1 copy" if the
+ISR shrinks to just the leader; `min.insync.replicas` is ignored for `acks=0/1`. Together they guarantee
+**≥ 2 copies of every acknowledged write**. On a single-broker cluster `acks=all` works with
+`min.insync.replicas=1`.
+
+**5. Consuming does not delete — correct.**
+Records are removed only by **retention** (`retention.ms` / `retention.bytes`) or **log compaction**
+(Phase 8), never by consumption. That is why many groups can read the same events independently.
