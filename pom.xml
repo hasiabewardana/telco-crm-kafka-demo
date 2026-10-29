@@ -23,6 +23,7 @@
 
     <modules>
         <module>common-events</module>
+        <module>activation-service</module>
         <!-- services are added phase by phase -->
     </modules>
 

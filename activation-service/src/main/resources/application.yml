@@ -1,0 +1,39 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: activation-service
+
+  kafka:
+    # More than one broker, so the app can still start if one broker is down
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
+    producer:
+      client-id: activation-service
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # Wait until every in-sync replica has the record (with min.insync.replicas=2 -> at least 2 copies)
+      acks: all
+      # Batch small records together and compress the batch
+      compression-type: lz4
+      properties:
+        # Broker de-duplicates retries using producer id + sequence number -> no duplicates, no reordering
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        # Retry transient errors (e.g. leader change) for up to 15 s in total, then fail the send
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        linger.ms: 5
+        # Don't leak Java class names into the message headers; consumers decide the target type
+        spring.json.add.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+telco:
+  activation:
+    # How long the REST call waits for the broker acknowledgement (must exceed delivery.timeout.ms)
+    publish-timeout: 20s
